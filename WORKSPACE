@@ -66,6 +66,12 @@ http_archive(
 http_archive(
     name = "hkv",
     build_file = "//build_deps/toolchains/hkv:hkv.BUILD",
+    patch_cmds = [
+        "sed -i 's/^__global__ void /static __global__ void /g' include/merlin/core_kernels/group_lock_kernels.cuh",
+        "sed -i 's/^uint64_t EMPTY_KEY_CPU/inline uint64_t EMPTY_KEY_CPU/g' include/merlin/types.cuh",
+        "sed -i 's/^cudaError_t init_reserved_keys/inline cudaError_t init_reserved_keys/g' include/merlin/types.cuh",
+        "sed -i 's/^__global__ void memset64bitKernel/static __global__ void memset64bitKernel/g' include/merlin/utils.cuh",
+    ],
     sha256 = "a73d7bea159173db2038f7c5215a7d1fbd5362adfb232fabde206dc64a1e817c",
     strip_prefix = "HierarchicalKV-0.1.0-beta.12",
     url = "https://github.com/NVIDIA-Merlin/HierarchicalKV/archive/refs/tags/v0.1.0-beta.12.tar.gz",
