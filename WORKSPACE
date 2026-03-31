@@ -58,9 +58,9 @@ new_git_repository(
 http_archive(
     name = "redis-plus-plus",
     build_file = "//build_deps/toolchains/redis:redis-plus-plus.BUILD",
-    sha256 = "3221e1df7bbe95669aecaec1c6c6f4c9a52f472dd4e694e681da951bc738d6bd",
-    strip_prefix = "redis-plus-plus-1.2.3",
-    url = "https://github.com/sewenew/redis-plus-plus/archive/refs/tags/1.2.3.zip",
+    sha256 = "630f4e31eaa4a4e3a7f90bd4245022c442bd14b71c8de2623e6a9d7266df44cc",
+    strip_prefix = "redis-plus-plus-1.3.15",
+    url = "https://github.com/sewenew/redis-plus-plus/archive/refs/tags/1.3.15.zip",
 )
 
 http_archive(
