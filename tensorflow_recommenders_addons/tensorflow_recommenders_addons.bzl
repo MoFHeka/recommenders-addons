@@ -74,13 +74,18 @@ def custom_op_library(
 
     if cuda_srcs:
         copts = copts + if_cuda(["-DGOOGLE_CUDA=1"])
-        cuda_copts = copts + if_cuda_is_configured([
-            "-x cuda",
-            # "-nvcc_options=relaxed-constexpr",
-            # "-nvcc_options=ftz=true",
-            "--expt-relaxed-constexpr",
-            "-Xcuda-ptxas --fast-math",
-        ])
+        cuda_copts = copts + if_cuda_is_configured(["-x cuda"]) + select({
+            "@local_config_cuda//cuda:using_nvcc": [
+                "-nvcc_options=relaxed-constexpr",
+                # "-nvcc_options=ftz=true",
+                "-Xcuda-ptxas --fast-math",
+            ],
+            "@local_config_cuda//cuda:using_clang": [
+                "-fcuda-flush-denormals-to-zero",
+                "-Xcuda-ptxas --fast-math",
+            ],
+            "//conditions:default": [],
+        })
         cuda_deps = deps + if_cuda_is_configured(cuda_deps) + if_cuda_is_configured([
             "@local_config_cuda//cuda:cuda_headers",
             "@local_config_cuda//cuda:cudart_static",
