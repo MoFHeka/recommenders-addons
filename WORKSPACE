@@ -1,7 +1,7 @@
 workspace(name = "tf_recommenders_addons")
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("//build_deps/tf_dependency:tf_configure.bzl", "tf_configure")
 load("//build_deps/toolchains/gpu:cuda_configure.bzl", "cuda_configure")
 
@@ -69,6 +69,41 @@ http_archive(
     sha256 = "a73d7bea159173db2038f7c5215a7d1fbd5362adfb232fabde206dc64a1e817c",
     strip_prefix = "HierarchicalKV-0.1.0-beta.12",
     url = "https://github.com/NVIDIA-Merlin/HierarchicalKV/archive/refs/tags/v0.1.0-beta.12.tar.gz",
+)
+
+http_archive(
+    name = "parlayhash",
+    build_file_content = """
+cc_library(
+    name = "parlay_hash",
+    hdrs = glob([
+        "include/parlay_hash/**/*.h",
+        "include/parlay/**/*.h",
+        "include/parlay/internal/**/*.h",
+        "include/utils/**/*.h",
+    ]),
+    includes = ["include"],
+    copts = ["-mcx16", "-std=c++17"],
+    visibility = ["//visibility:public"],
+)
+""",
+    patch_cmds = [
+        # Patch 1: sequence_base.h — fix std::addressof(data) ambiguity with union member name
+        """sed -i 's/std::byte data\\[1\\]/std::byte storage_data[1]/' include/parlay/internal/sequence_base.h""",
+        """sed -i 's/std::addressof(data)/std::addressof(storage_data)/g' include/parlay/internal/sequence_base.h""",
+        """sed -i 's/offsetof(header, data)/offsetof(header, storage_data)/g' include/parlay/internal/sequence_base.h""",
+        # Patch 2: thread_specific.h — fix non-copyable T in std::function<T(id)> by using placement-new pattern
+        """sed -i 's|mutable std::function<T(thread_id_type)> constructor;|mutable std::function<void(void*, thread_id_type)> constructor;|' include/utils/threads/thread_specific.h""",
+        """sed -i 's|: constructor(\\[](std::size_t) { return T{}; })|: constructor([](void* p, std::size_t id) { new (p) T{}; })|' include/utils/threads/thread_specific.h""",
+        """sed -i 's|: constructor(\\[f = std::forward<F>(constructor_)](std::size_t) { return f(); })|: constructor([f = std::forward<F>(constructor_)](void* p, std::size_t) { new (p) T(f()); })|' include/utils/threads/thread_specific.h""",
+        """sed -i 's|explicit ThreadSpecific(F\\&\\& constructor_) : constructor(std::forward<F>(constructor_))|explicit ThreadSpecific(F\\&\\& constructor_) : constructor([f = std::forward<F>(constructor_)](void* p, thread_id_type id) { new (p) T(f(id)); })|' include/utils/threads/thread_specific.h""",
+        """sed -i 's|new (static_cast<void\\*>(chunk\\[i\\].get())) T(constructor(chunk_size + i));|constructor(static_cast<void*>(chunk[i].get()), chunk_size + i);|' include/utils/threads/thread_specific.h""",
+        """sed -i 's|new (static_cast<void\\*>(chunk\\[i\\].get())) T(constructor(i));|constructor(static_cast<void*>(chunk[i].get()), i);|' include/utils/threads/thread_specific.h""",
+    ],
+    strip_prefix = "parlayhash-081408ba6111ce78b5add9129f8d902fa2fea58f",
+    urls = [
+        "https://github.com/cmuparlay/parlayhash/archive/081408ba6111ce78b5add9129f8d902fa2fea58f.tar.gz",
+    ],
 )
 
 tf_configure(

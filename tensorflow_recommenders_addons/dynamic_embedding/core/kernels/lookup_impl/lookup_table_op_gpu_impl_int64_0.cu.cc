@@ -19,7 +19,7 @@ namespace recommenders_addons {
 namespace lookup {
 namespace gpu {
 DEFINE_CREATE_TABLE(0, int64, int64, 0, 0);
-}  // namespace gpu
-}  // namespace lookup
-}  // namespace recommenders_addons
-}  // namespace tensorflow
+} // namespace gpu
+} // namespace lookup
+} // namespace recommenders_addons
+} // namespace tensorflow

@@ -43,27 +43,23 @@ namespace gpu {
 
 using GPUDevice = Eigen::ThreadPoolDevice;
 
-template <class V>
-struct ValueArrayBase {};
+template <class V> struct ValueArrayBase {};
 
-template <class V, size_t DIM>
-struct ValueArray : public ValueArrayBase<V> {
+template <class V, size_t DIM> struct ValueArray : public ValueArrayBase<V> {
   V value[DIM];
 };
 
-template <class T>
-using ValueType = ValueArrayBase<T>;
+template <class T> using ValueType = ValueArrayBase<T>;
 
-template <class K, class V>
-class TableWrapperBase {
- public:
+template <class K, class V> class TableWrapperBase {
+public:
   virtual ~TableWrapperBase() {}
-  virtual void upsert(const K* d_keys, const ValueType<V>* d_vals, size_t len,
+  virtual void upsert(const K *d_keys, const ValueType<V> *d_vals, size_t len,
                       cudaStream_t stream) {}
-  virtual void accum(const K* d_keys, const ValueType<V>* d_vals_or_deltas,
-                     const bool* d_exists, size_t len, cudaStream_t stream) {}
-  virtual void dump(K* d_key, ValueType<V>* d_val, const size_t offset,
-                    const size_t search_length, size_t* d_dump_counter,
+  virtual void accum(const K *d_keys, const ValueType<V> *d_vals_or_deltas,
+                     const bool *d_exists, size_t len, cudaStream_t stream) {}
+  virtual void dump(K *d_key, ValueType<V> *d_val, const size_t offset,
+                    const size_t search_length, size_t *d_dump_counter,
                     cudaStream_t stream) const {}
   virtual size_t rehash_if_needed(const size_t min_capacity,
                                   cudaStream_t stream,
@@ -71,40 +67,40 @@ class TableWrapperBase {
                                   const size_t last_hint_size = 0) {
     return 0;
   }
-  virtual void get(const K* d_keys, ValueType<V>* d_vals, bool* d_status,
-                   size_t len, ValueType<V>* d_def_val, cudaStream_t stream,
+  virtual void get(const K *d_keys, ValueType<V> *d_vals, bool *d_status,
+                   size_t len, ValueType<V> *d_def_val, cudaStream_t stream,
                    bool is_full_size_default) const {}
   virtual size_t get_size(cudaStream_t stream) const { return 0; }
   virtual size_t get_capacity() const { return 0; }
-  virtual void remove(const K* d_keys, size_t len, cudaStream_t stream) {}
+  virtual void remove(const K *d_keys, size_t len, cudaStream_t stream) {}
   virtual void clear(cudaStream_t stream) {}
 };
 
 template <class K, class V, size_t DIM>
 class TableWrapper final : public TableWrapperBase<K, V> {
- private:
+private:
   using Table = nv::HashTable<K, ValueArray<V, DIM>, ValueType<V>,
                               std::numeric_limits<K>::max(), DIM>;
 
- public:
+public:
   TableWrapper(size_t max_size) : max_size_(max_size) {
-    table_ = std::make_unique<Table>(max_size);  // Allocate new table
+    table_ = std::make_unique<Table>(max_size); // Allocate new table
   }
 
   ~TableWrapper() override { table_.reset(nullptr); }
 
-  void upsert(const K* d_keys, const ValueType<V>* d_vals, size_t len,
+  void upsert(const K *d_keys, const ValueType<V> *d_vals, size_t len,
               cudaStream_t stream) override {
     table_->upsert(d_keys, d_vals, len, stream);
   }
 
-  void accum(const K* d_keys, const ValueType<V>* d_vals_or_deltas,
-             const bool* d_exists, size_t len, cudaStream_t stream) override {
+  void accum(const K *d_keys, const ValueType<V> *d_vals_or_deltas,
+             const bool *d_exists, size_t len, cudaStream_t stream) override {
     table_->accum(d_keys, d_vals_or_deltas, d_exists, len, stream);
   }
 
-  void dump(K* d_key, ValueType<V>* d_val, const size_t offset,
-            const size_t search_length, size_t* d_dump_counter,
+  void dump(K *d_key, ValueType<V> *d_val, const size_t offset,
+            const size_t search_length, size_t *d_dump_counter,
             cudaStream_t stream) const override {
     table_->dump(d_key, d_val, offset, search_length, d_dump_counter, stream);
   }
@@ -112,10 +108,10 @@ class TableWrapper final : public TableWrapperBase<K, V> {
   size_t rehash_if_needed(const size_t min_capacity, cudaStream_t stream,
                           const size_t new_keys_num = 0,
                           const size_t last_hint_size = 0) override {
-    K* d_keys;
-    gpu::ValueArrayBase<V>* d_values;
+    K *d_keys;
+    gpu::ValueArrayBase<V> *d_values;
     constexpr auto runtime_dim = DIM;
-    size_t* d_dump_counter;
+    size_t *d_dump_counter;
     constexpr const float max_load_factor = 0.75;
     constexpr const float min_load_factor = 0.25;
 
@@ -149,24 +145,25 @@ class TableWrapper final : public TableWrapperBase<K, V> {
       new_capacity = new_hint_size * 2;
     }
 
-    if (new_capacity != capacity) {  // rehash manually.
+    if (new_capacity != capacity) { // rehash manually.
       size_t h_dump_counter = 0;
-      CUDA_CHECK(cudaMallocManaged((void**)&d_dump_counter, sizeof(size_t)));
-      CUDA_CHECK(cudaMallocManaged((void**)&d_keys, sizeof(K) * capacity));
-      CUDA_CHECK(cudaMallocManaged((void**)&d_values,
+      CUDA_CHECK(cudaMallocManaged((void **)&d_dump_counter, sizeof(size_t)));
+      CUDA_CHECK(cudaMallocManaged((void **)&d_keys, sizeof(K) * capacity));
+      CUDA_CHECK(cudaMallocManaged((void **)&d_values,
                                    sizeof(V) * runtime_dim * capacity));
-      table_->dump(d_keys, (gpu::ValueArrayBase<V>*)d_values, 0, capacity,
+      table_->dump(d_keys, (gpu::ValueArrayBase<V> *)d_values, 0, capacity,
                    d_dump_counter, stream);
       CUDA_CHECK(cudaStreamSynchronize(stream));
 
-      table_.reset(nullptr);                           // Destruct old table
-      table_ = std::make_unique<Table>(new_capacity);  // Allocate new table
+      table_.reset(nullptr);                          // Destruct old table
+      table_ = std::make_unique<Table>(new_capacity); // Allocate new table
 
       CUDA_CHECK(cudaStreamSynchronize(stream));
-      CUDA_CHECK(cudaMemcpy((size_t*)&h_dump_counter, (size_t*)d_dump_counter,
+      CUDA_CHECK(cudaMemcpy((size_t *)&h_dump_counter, (size_t *)d_dump_counter,
                             sizeof(size_t), cudaMemcpyDefault));
-      table_->upsert((const K*)d_keys, (const gpu::ValueArrayBase<V>*)d_values,
-                     h_dump_counter, stream);
+      table_->upsert((const K *)d_keys,
+                     (const gpu::ValueArrayBase<V> *)d_values, h_dump_counter,
+                     stream);
       CUDA_CHECK(cudaStreamSynchronize(stream));
       CUDA_CHECK(cudaFree(d_keys));
       CUDA_CHECK(cudaFree(d_values));
@@ -181,8 +178,8 @@ class TableWrapper final : public TableWrapperBase<K, V> {
     return new_hint_size;
   }
 
-  void get(const K* d_keys, ValueType<V>* d_vals, bool* d_status, size_t len,
-           ValueType<V>* d_def_val, cudaStream_t stream,
+  void get(const K *d_keys, ValueType<V> *d_vals, bool *d_status, size_t len,
+           ValueType<V> *d_def_val, cudaStream_t stream,
            bool is_full_size_default) const override {
     table_->get(d_keys, d_vals, d_status, len, d_def_val, stream,
                 is_full_size_default);
@@ -194,68 +191,68 @@ class TableWrapper final : public TableWrapperBase<K, V> {
 
   size_t get_capacity() const override { return table_->get_capacity(); }
 
-  void remove(const K* d_keys, size_t len, cudaStream_t stream) override {
+  void remove(const K *d_keys, size_t len, cudaStream_t stream) override {
     table_->remove(d_keys, len, stream);
   }
 
   void clear(cudaStream_t stream) override { table_->clear(stream); }
 
- private:
+private:
   size_t max_size_;
   std::unique_ptr<Table> table_;
-};  // namespace gpu
+}; // namespace gpu
 
-#define CREATE_A_TABLE(DIM)                                   \
-  do {                                                        \
-    if (runtime_dim == (DIM + 1)) {                           \
-      *pptable = new TableWrapper<K, V, (DIM + 1)>(max_size); \
-    };                                                        \
+#define CREATE_A_TABLE(DIM)                                                    \
+  do {                                                                         \
+    if (runtime_dim == (DIM + 1)) {                                            \
+      *pptable = new TableWrapper<K, V, (DIM + 1)>(max_size);                  \
+    };                                                                         \
   } while (0)
 
-#define CREATE_TABLE_PARTIAL_BRANCHES(PERIFX) \
-  do {                                        \
-    CREATE_A_TABLE((PERIFX)*10 + 0);          \
-    CREATE_A_TABLE((PERIFX)*10 + 1);          \
-    CREATE_A_TABLE((PERIFX)*10 + 2);          \
-    CREATE_A_TABLE((PERIFX)*10 + 3);          \
-    CREATE_A_TABLE((PERIFX)*10 + 4);          \
-    CREATE_A_TABLE((PERIFX)*10 + 5);          \
-    CREATE_A_TABLE((PERIFX)*10 + 6);          \
-    CREATE_A_TABLE((PERIFX)*10 + 7);          \
-    CREATE_A_TABLE((PERIFX)*10 + 8);          \
-    CREATE_A_TABLE((PERIFX)*10 + 9);          \
+#define CREATE_TABLE_PARTIAL_BRANCHES(PERIFX)                                  \
+  do {                                                                         \
+    CREATE_A_TABLE((PERIFX)*10 + 0);                                           \
+    CREATE_A_TABLE((PERIFX)*10 + 1);                                           \
+    CREATE_A_TABLE((PERIFX)*10 + 2);                                           \
+    CREATE_A_TABLE((PERIFX)*10 + 3);                                           \
+    CREATE_A_TABLE((PERIFX)*10 + 4);                                           \
+    CREATE_A_TABLE((PERIFX)*10 + 5);                                           \
+    CREATE_A_TABLE((PERIFX)*10 + 6);                                           \
+    CREATE_A_TABLE((PERIFX)*10 + 7);                                           \
+    CREATE_A_TABLE((PERIFX)*10 + 8);                                           \
+    CREATE_A_TABLE((PERIFX)*10 + 9);                                           \
   } while (0)
 
 // create branches with dim range:
 // [CENTILE * 100 + (DECTILE) * 10, CENTILE * 100 + (DECTILE) * 10 + 50]
-#define CREATE_TABLE_BRANCHES(CENTILE, DECTILE)              \
-  CREATE_TABLE_PARTIAL_BRANCHES(CENTILE * 10 + DECTILE + 0); \
-  CREATE_TABLE_PARTIAL_BRANCHES(CENTILE * 10 + DECTILE + 1); \
-  CREATE_TABLE_PARTIAL_BRANCHES(CENTILE * 10 + DECTILE + 2); \
-  CREATE_TABLE_PARTIAL_BRANCHES(CENTILE * 10 + DECTILE + 3); \
+#define CREATE_TABLE_BRANCHES(CENTILE, DECTILE)                                \
+  CREATE_TABLE_PARTIAL_BRANCHES(CENTILE * 10 + DECTILE + 0);                   \
+  CREATE_TABLE_PARTIAL_BRANCHES(CENTILE * 10 + DECTILE + 1);                   \
+  CREATE_TABLE_PARTIAL_BRANCHES(CENTILE * 10 + DECTILE + 2);                   \
+  CREATE_TABLE_PARTIAL_BRANCHES(CENTILE * 10 + DECTILE + 3);                   \
   CREATE_TABLE_PARTIAL_BRANCHES(CENTILE * 10 + DECTILE + 4);
 
 template <class K, class V, int centile, int dectile>
-void CreateTableImpl(TableWrapperBase<K, V>** pptable, size_t max_size,
+void CreateTableImpl(TableWrapperBase<K, V> **pptable, size_t max_size,
                      size_t runtime_dim) {
   CREATE_TABLE_BRANCHES(centile, dectile);
 }
 
-#define DEFINE_CREATE_TABLE(ID, K, V, CENTILE, DECTILE)                      \
-  void CreateTable##ID(size_t max_size, size_t runtime_dim,                  \
-                       TableWrapperBase<K, V>** pptable) {                   \
-    CreateTableImpl<K, V, CENTILE, DECTILE>(pptable, max_size, runtime_dim); \
+#define DEFINE_CREATE_TABLE(ID, K, V, CENTILE, DECTILE)                        \
+  void CreateTable##ID(size_t max_size, size_t runtime_dim,                    \
+                       TableWrapperBase<K, V> **pptable) {                     \
+    CreateTableImpl<K, V, CENTILE, DECTILE>(pptable, max_size, runtime_dim);   \
   }
 
-#define DECLARE_CREATE_TABLE(K, V)                       \
-  void CreateTable0(size_t max_size, size_t runtime_dim, \
-                    TableWrapperBase<K, V>**);           \
-  void CreateTable1(size_t max_size, size_t runtime_dim, \
-                    TableWrapperBase<K, V>**);           \
-  void CreateTable2(size_t max_size, size_t runtime_dim, \
-                    TableWrapperBase<K, V>**);           \
-  void CreateTable3(size_t max_size, size_t runtime_dim, \
-                    TableWrapperBase<K, V>**);
+#define DECLARE_CREATE_TABLE(K, V)                                             \
+  void CreateTable0(size_t max_size, size_t runtime_dim,                       \
+                    TableWrapperBase<K, V> **);                                \
+  void CreateTable1(size_t max_size, size_t runtime_dim,                       \
+                    TableWrapperBase<K, V> **);                                \
+  void CreateTable2(size_t max_size, size_t runtime_dim,                       \
+                    TableWrapperBase<K, V> **);                                \
+  void CreateTable3(size_t max_size, size_t runtime_dim,                       \
+                    TableWrapperBase<K, V> **);
 
 DECLARE_CREATE_TABLE(int64, float);
 DECLARE_CREATE_TABLE(int64, Eigen::half);
@@ -270,9 +267,9 @@ DECLARE_CREATE_TABLE(int32, float);
 #undef CREATE_TABLE_ALL_BRANCHES
 #undef DECLARE_CREATE_TABLE
 
-}  // namespace gpu
-}  // namespace lookup
-}  // namespace recommenders_addons
-}  // namespace tensorflow
+} // namespace gpu
+} // namespace lookup
+} // namespace recommenders_addons
+} // namespace tensorflow
 
-#endif  // TFRA_CORE_KERNELS_LOOKUP_TABLE_OP_GPU_H_
+#endif // TFRA_CORE_KERNELS_LOOKUP_TABLE_OP_GPU_H_
