@@ -16,8 +16,6 @@ limitations under the License.
 #define EIGEN_USE_THREADS
 
 #include <string>
-#include <type_traits>
-#include <utility>
 
 #include "tensorflow/core/kernels/lookup_table_op.h"
 #include "tensorflow/core/platform/path.h"

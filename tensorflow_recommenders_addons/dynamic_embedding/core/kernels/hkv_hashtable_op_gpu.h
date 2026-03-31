@@ -16,9 +16,6 @@ limitations under the License.
 
 #include "tensorflow_recommenders_addons/dynamic_embedding/core/utils/cxx17_absl_hack.h"
 
-#include "tensorflow_recommenders_addons/dynamic_embedding/core/kernels/cuckoo_hashtable_op_gpu.h"
-#include "tensorflow_recommenders_addons/dynamic_embedding/core/kernels/lookup_impl/lookup_table_op_hkv.h"
-
 #define EIGEN_USE_GPU
 
 #include <cuda_runtime.h>
@@ -38,6 +35,8 @@ limitations under the License.
 #include "tensorflow/core/util/env_var.h"
 #include "tensorflow/core/util/gpu_device_functions.h"
 #include "tensorflow/core/util/gpu_kernel_helper.h"
+#include "tensorflow_recommenders_addons/dynamic_embedding/core/kernels/cuckoo_hashtable_op_gpu.h"
+#include "tensorflow_recommenders_addons/dynamic_embedding/core/kernels/lookup_impl/lookup_table_op_hkv.h"
 #if TF_VERSION_INTEGER >= 2110 // 2.11.0
 #include "tensorflow/compiler/xla/stream_executor/stream.h"
 #else
@@ -1124,15 +1123,6 @@ private:
           .TypeConstraint<key_dtype>("key_dtype")                              \
           .TypeConstraint<value_dtype>("value_dtype"),                         \
       HashTableExportKeysAndScoresGpuOp<key_dtype, value_dtype>);
-
-REGISTER_HKV_TABLE(int64, float);
-REGISTER_HKV_TABLE(int64, int8);
-REGISTER_HKV_TABLE(int64, int32);
-REGISTER_HKV_TABLE(int64, int64);
-REGISTER_HKV_TABLE(int64, Eigen::half);
-REGISTER_HKV_TABLE(int64, bfloat16);
-
-#undef REGISTER_HKV_TABLE
 
 } // namespace hkv_table
 } // namespace recommenders_addons

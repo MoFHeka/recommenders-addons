@@ -143,11 +143,15 @@ custom_cuda_op_library(
         FOR_TF_SERVING,
     ),
     cuda_srcs = if_cuda([
+        "utils/cxx17_absl_hack.h",
         "utils/utils.h",
         "utils/types.h",
         "kernels/cuckoo_hashtable_op_gpu.h",
-        "kernels/hkv_hashtable_op_gpu.cu.cc",
-    ]) + glob(["kernels/lookup_impl/lookup_table_op_hkv*"]),
+        "kernels/hkv_hashtable_op_gpu.h",
+    ]) + glob([
+        "kernels/lookup_impl/lookup_table_op_hkv*",
+        "kernels/hkv_impl/hkv_hashtable_op_gpu_impl_*.cu.cc",
+    ]),
     deps = [
         "//tensorflow_recommenders_addons/dynamic_embedding/core/lib/parlayhash:concurrent_hashmap",
     ],
