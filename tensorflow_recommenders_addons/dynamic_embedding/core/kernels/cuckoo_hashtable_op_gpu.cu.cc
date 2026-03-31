@@ -14,6 +14,8 @@ limitations under the License.
 ==============================================================================*/
 #if GOOGLE_CUDA
 
+#include "tensorflow_recommenders_addons/dynamic_embedding/core/utils/cxx17_absl_hack.h"
+
 #include "tensorflow_recommenders_addons/dynamic_embedding/core/kernels/cuckoo_hashtable_op_gpu.h"
 #include "tensorflow_recommenders_addons/dynamic_embedding/core/kernels/lookup_impl/lookup_table_op_gpu.h"
 #include "tensorflow_recommenders_addons/dynamic_embedding/core/utils/utils.h"

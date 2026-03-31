@@ -12,11 +12,13 @@ custom_op_library(
         "kernels/cuckoo_hashtable_op.cc",
         "kernels/cuckoo_hashtable_op.h",
         "ops/cuckoo_hashtable_ops.cc",
+        "utils/cxx17_absl_hack.h",
         "utils/types.h",
         "utils/utils.h",
     ] + glob(["kernels/lookup_impl/lookup_table_op_cpu*"]),
     copts = [
         "-std=c++17",
+        "-include tensorflow_recommenders_addons/dynamic_embedding/core/utils/cxx17_absl_hack.h",
         "-mcx16",
     ],
     deps = [
@@ -126,10 +128,12 @@ custom_cuda_op_library(
         "kernels/cuckoo_hashtable_op.h",
         "kernels/hkv_hashtable_op.cc",
         "ops/hkv_hashtable_ops.cc",
+        "utils/cxx17_absl_hack.h",
         "utils/utils.h",
     ] + glob(["kernels/lookup_impl/lookup_table_op_cpu*"]),
     copts = [
         "-std=c++17",
+        "-include tensorflow_recommenders_addons/dynamic_embedding/core/utils/cxx17_absl_hack.h",
         "-mcx16",
         "-Ofast",
     ],
