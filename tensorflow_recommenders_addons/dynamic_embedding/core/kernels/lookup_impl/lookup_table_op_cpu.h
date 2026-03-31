@@ -277,7 +277,7 @@ public:
       V value = value_flat(index, j);
       value_vec.push_back(value);
     }
-    return table_->insert_or_assign(key, std::move(value_vec));
+    return table_->insert_or_assign(key, value_vec);
   }
 
   bool insert_or_assign(K *key, V *value, int64 value_dim) const override {
@@ -286,7 +286,7 @@ public:
     for (int64 j = 0; j < value_dim; j++) {
       value_vec.push_back(*(value + j));
     }
-    return table_->insert_or_assign(*key, std::move(value_vec));
+    return table_->insert_or_assign(*key, value_vec);
   }
 
   bool insert_or_accum(K key, ConstTensor2D<V> &value_or_delta_flat, bool exist,
@@ -296,7 +296,7 @@ public:
     for (int64 j = 0; j < value_dim; j++) {
       value_or_delta_vec.push_back(value_or_delta_flat(index, j));
     }
-    return table_->insert_or_accum(key, std::move(value_or_delta_vec), exist);
+    return table_->insert_or_accum(key, value_or_delta_vec, exist);
   }
 
   void find(const K &key, typename tensorflow::TTypes<V, 2>::Tensor &value_flat,
@@ -383,7 +383,7 @@ struct TableDispatcherImpl<K, V, DIM, true> {
 };
 
 template <class K, class V, size_t DIM> struct TableDispatcher {
-  static constexpr bool IS_FIX_RANGE = (DIM <= 100);
+  static constexpr bool IS_FIX_RANGE = (DIM <= 512);
   static constexpr bool K_IS_INT64 = std::is_same<K, int64>::value;
   static constexpr bool V_IS_TSTRING = std::is_same<V, tstring>::value;
   static constexpr bool OPTIMIZED =
@@ -408,7 +408,7 @@ template <class K, class V, size_t DIM> struct TableDispatcher {
     return;                                                                    \
   } while (0)
 
-#define CREATE_TABLE_PARTIAL_BRANCHES(PREFIX)                                  \
+#define CREATE_TABLE_10(PREFIX)                                                \
   do {                                                                         \
     CREATE_A_TABLE((PREFIX)*10 + 0);                                           \
     CREATE_A_TABLE((PREFIX)*10 + 1);                                           \
@@ -422,24 +422,37 @@ template <class K, class V, size_t DIM> struct TableDispatcher {
     CREATE_A_TABLE((PREFIX)*10 + 9);                                           \
   } while (0)
 
-// create branches with dim range [1, 100]
-#define CREATE_TABLE_ALL_BRANCHES(CENTILE, DECTILE)                            \
-  CREATE_TABLE_PARTIAL_BRANCHES(CENTILE * 10 + DECTILE + 0);                   \
-  CREATE_TABLE_PARTIAL_BRANCHES(CENTILE * 10 + DECTILE + 1);                   \
-  CREATE_TABLE_PARTIAL_BRANCHES(CENTILE * 10 + DECTILE + 2);                   \
-  CREATE_TABLE_PARTIAL_BRANCHES(CENTILE * 10 + DECTILE + 3);                   \
-  CREATE_TABLE_PARTIAL_BRANCHES(CENTILE * 10 + DECTILE + 4);                   \
-  CREATE_TABLE_PARTIAL_BRANCHES(CENTILE * 10 + DECTILE + 5);                   \
-  CREATE_TABLE_PARTIAL_BRANCHES(CENTILE * 10 + DECTILE + 6);                   \
-  CREATE_TABLE_PARTIAL_BRANCHES(CENTILE * 10 + DECTILE + 7);                   \
-  CREATE_TABLE_PARTIAL_BRANCHES(CENTILE * 10 + DECTILE + 8);                   \
-  CREATE_TABLE_PARTIAL_BRANCHES(CENTILE * 10 + DECTILE + 9);                   \
-  CREATE_DEFAULT_TABLE();
+#define CREATE_TABLE_100(PREFIX)                                               \
+  do {                                                                         \
+    CREATE_TABLE_10((PREFIX)*10 + 0);                                          \
+    CREATE_TABLE_10((PREFIX)*10 + 1);                                          \
+    CREATE_TABLE_10((PREFIX)*10 + 2);                                          \
+    CREATE_TABLE_10((PREFIX)*10 + 3);                                          \
+    CREATE_TABLE_10((PREFIX)*10 + 4);                                          \
+    CREATE_TABLE_10((PREFIX)*10 + 5);                                          \
+    CREATE_TABLE_10((PREFIX)*10 + 6);                                          \
+    CREATE_TABLE_10((PREFIX)*10 + 7);                                          \
+    CREATE_TABLE_10((PREFIX)*10 + 8);                                          \
+    CREATE_TABLE_10((PREFIX)*10 + 9);                                          \
+  } while (0)
+
+#define CREATE_TABLE_512()                                                     \
+  do {                                                                         \
+    CREATE_TABLE_100(0);                                                       \
+    CREATE_TABLE_100(1);                                                       \
+    CREATE_TABLE_100(2);                                                       \
+    CREATE_TABLE_100(3);                                                       \
+    CREATE_TABLE_100(4);                                                       \
+    CREATE_TABLE_10(50);                                                       \
+    CREATE_A_TABLE(510);                                                       \
+    CREATE_A_TABLE(511);                                                       \
+  } while (0)
 
 template <class K, class V, int CENTILE, int DECTILE>
 void CreateTableImpl(TableWrapperBase<K, V> **pptable, size_t init_size,
                      size_t runtime_dim) {
-  CREATE_TABLE_ALL_BRANCHES(CENTILE, DECTILE);
+  CREATE_TABLE_512();
+  CREATE_DEFAULT_TABLE();
 }
 
 #define DEFINE_CREATE_TABLE(K, V, CENTILE, DECTILE)                            \
