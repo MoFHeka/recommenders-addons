@@ -339,7 +339,8 @@ public:
     if (len == 0) {
       return;
     }
-    CUDA_CHECK(cudaMemset((void *)d_vals, 0, sizeof(ValType) * len));
+    CUDA_CHECK(
+        cudaMemsetAsync((void *)d_vals, 0, sizeof(ValType) * len, stream));
     const int grid_size = (len - 1) / BLOCK_SIZE_ + 1;
     search_kernel<<<grid_size, BLOCK_SIZE_, 0, stream>>>(
         table_, d_keys, (ValType *)d_vals, d_status, len, (ValType *)d_def_val,
@@ -401,7 +402,7 @@ public:
             const size_t search_length, size_t *d_dump_counter,
             cudaStream_t stream) const {
     // Before we call the kernel, set the global counter to 0
-    CUDA_CHECK(cudaMemset(d_dump_counter, 0, sizeof(size_t)));
+    CUDA_CHECK(cudaMemsetAsync(d_dump_counter, 0, sizeof(size_t), stream));
     // grid size according to the searching length.
     size_t block_size =
         shared_mem_size * 0.5 / (sizeof(KeyType) + sizeof(ValType));
